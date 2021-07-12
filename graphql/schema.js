@@ -114,7 +114,7 @@ module.exports = buildSchema(`
     type RootMutation {
         signUp(userData: UserInput): UserType!
         createRent(rent: RentInput!): RentType!
-        updateRent(id: String!, rent: RentInput!): String!
+        updateRent(rent: RentInput! id: String!): RentType!
         deleteRent(id: String!): String!
         updateUser(id: String!, name: String, email: String, avatar: String): UserType!
     }

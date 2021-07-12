@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../models/user");
 const Rent = require("../models/rent");
+const user = require("../models/user");
 
 module.exports = {
   signUp: async ({ userData }, req) => {
@@ -85,12 +86,30 @@ module.exports = {
     );
     return { token: token, userId: user };
   },
+  user: async (req) => {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const user = await User.findById(req.userId);
+    if (!user) {
+      const error = new Error("No user found!");
+      error.code = 404;
+      throw error;
+    }
+    return { ...user._doc, _id: user._id.toString() };
+  },
+  userUpdate: async ({ user }, req) => {
+    
+  },
   createRent: async ({ rent }, req) => {
     if (!req.isAuth) {
       const error = new Error("Not authenticated!");
       error.code = 401;
       throw error;
     }
+
     rent = JSON.parse(JSON.stringify(rent));
 
     const user = await User.findById(req.userId);
@@ -162,7 +181,6 @@ module.exports = {
       error.code = 422;
       throw error;
     }
-    console.log(rent)
 
     const newRent = new Rent({
       author: user,
@@ -179,6 +197,7 @@ module.exports = {
 
     const createdRent = await newRent.save();
     user.rents.push(createdRent);
+
     await user.save();
     return {
       ...createdRent._doc,
@@ -187,7 +206,7 @@ module.exports = {
       updatedAt: createdRent.updatedAt.toISOString(),
     };
   },
-  updateRent: async ({rent, id}, req) => {
+  updateRent: async ({ rent, id }, req) => {
     if (!req.isAuth) {
       const error = new Error("Not authenticated!");
       error.code = 401;
@@ -195,13 +214,13 @@ module.exports = {
     }
 
     const newRent = await Rent.findById(id).populate("author");
-    if(!rent) {
+    if (!rent) {
       const error = new Error("No offer found!");
       error.code = 404;
       throw error;
     }
 
-    if(rent.author._id.toString() !== req.userId.toString()) {
+    if (newRent.author._id.toString() !== req.userId.toString()) {
       const error = new Error("Not authorized!");
       error.code = 403;
       throw error;
@@ -226,7 +245,7 @@ module.exports = {
         message: "The information field can contain a maximum of 500 symbols.",
       });
     }
-    if (validator.isEmpty(location.lat) || validator.isEmpty(location.lng)) {
+    if (!rent.location.lat || !rent.location.lng) {
       errors.push({ message: "Invalid location." });
     }
     if (rent.price > 10000 || rent.price <= 0) {
@@ -244,17 +263,16 @@ module.exports = {
     if (rent.images.length <= 0) {
       errors.push({ message: "Offers require at least one image." });
     }
-    if (rent.rooms <= 0) {
+    if (rent.rooms.length <= 0) {
       errors.push({ message: "At least one room must be specified." });
     }
-    if (errorslength > 0) {
+    if (errors.length > 0) {
       const error = new Error("Invalid input.");
       error.data = errors;
       error.code = 422;
       throw error;
     }
 
-    newRent.author = rent.author
     newRent.title = rent.title;
     newRent.type = rent.type;
     newRent.information = rent.information;
@@ -264,16 +282,87 @@ module.exports = {
     newRent.images = rent.images;
     newRent.imgnames = rent.imgnames;
     newRent.rooms = rent.rooms;
-    if(rent.convos) {
+    if (rent.convos) {
       newRent.convos = rent.convos;
     }
 
     const uploadedNewRent = await newRent.save();
+    console.log(uploadedNewRent);
     return {
       ...uploadedNewRent._doc,
       _id: uploadedNewRent._id.toString(),
       createdAt: uploadedNewRent.createdAt.toISOString(),
       updatedAt: uploadedNewRent.updatedAt.toISOString(),
     };
-  }
+  },
+  deleteRent: async function ({ id }, req) {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const rent = await Rent.findById(id);
+    if (!rent) {
+      const error = new Error("No rent found!");
+      error.code = 404;
+      throw error;
+    }
+    if (rent.author.toString() !== req.userId.toString()) {
+      const error = new Error("Not authorized!");
+      error.code = 403;
+      throw error;
+    }
+    //insert the image deletion related to the rent
+    await Rent.findByIdAndRemove(id);
+    user.rents.pull(id);
+    await user.save();
+    return true;
+  },
+  rents: async ({ page }, req) => {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    if (!page) {
+      page = 1;
+    }
+    const perPage = 2;
+    const totalRents = await Rent.find().countDocuments();
+    const rents = await Rent.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .populate("author");
+    return {
+      rents: rents.map((rent) => {
+        return {
+          ...rent._doc,
+          _id: rent._id.toString(),
+          createdAt: rent.createdAt.toISOString(),
+          updatedAt: rent.updatedAt.toISOString(),
+        };
+      }),
+      totalRents: totalRents,
+    };
+  },
+  rent: async ({ id }, req) => {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+    const rent = await Rent.findById(id).populate("author");
+    if (!rent) {
+      const error = new Error("No rent found!");
+      error.code = 404;
+      throw error;
+    }
+    return {
+      ...rent._doc,
+      _id: rent._id.toString(),
+      createdAt: rent.createdAt.toISOString(),
+      updatedAt: rent.updatedAt.toISOString(),
+    };
+  },
 };

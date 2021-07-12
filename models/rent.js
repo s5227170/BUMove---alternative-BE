@@ -12,7 +12,7 @@ const rentSchema = new Schema({
       type: String,
     },
   ],
-  imgNames: [
+  imgnames: [
     {
       type: String,
     },
@@ -59,6 +59,6 @@ const rentSchema = new Schema({
       ref: "Message",
     },
   ],
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("Rent", rentSchema);
