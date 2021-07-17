@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const multer = require("multer");
 const { graphqlHTTP } = require("express-graphql");
 //This has been added for hte .env
-const dotenv = require("dotenv-flow")
+const dotenv = require("dotenv-flow");
 dotenv.config();
 
 const graphqlSchema = require("./graphql/schema");
@@ -100,8 +100,14 @@ app.use((error, req, res, next) => {
 });
 //the process.env.DB has its value in .env
 mongoose
-  .connect(process.env.DB , { useNewUrlParser: true }, { useUnifiedTopology: true })
+  .connect(
+    process.env.DB,
+    { useNewUrlParser: true },
+    { useUnifiedTopology: true }
+  )
   .then((result) => {
-    app.listen(8080);
+    const sevrer = app.listen(8080);
+    const io = require("socket.io").init(server);
+    io.on("connection", (socket) => {});
   })
   .catch((err) => console.log(err));

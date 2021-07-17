@@ -33,25 +33,22 @@ module.exports = buildSchema(`
 
     type MessageType {
         _id: ID!
-        home: UserType
-        away: String!
         name: String!
         rentId: RentType!
         texts: [TextsType]!
     }
 
     input MessageInput {
-        home: String!
-        away: String!
         name: String!
     }
     
     type TextsType {
         _id: ID!
         author: UserType!
+        receiver: String!
         content: String!
-        convoId: MessageType!
         name: String!
+        conversation: MessageType!
         createdAt: String!
         updatedAt: String!
     }
@@ -59,6 +56,8 @@ module.exports = buildSchema(`
     input TextsInput {
         content: String!
         name: String!
+        receiver: String!
+        conversation: String!
     }
 
     type UserType {
@@ -67,7 +66,7 @@ module.exports = buildSchema(`
         email: String!
         avatar: String!
         admin: Boolean!
-        rents: [RentType]!
+        rents: [RentType]
         password: String!
         createdAt: String!
         updatedAt: String!

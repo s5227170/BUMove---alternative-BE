@@ -1,10 +1,14 @@
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
+const io = require("../socket");
+const mongoose = require("mongoose");
 
 const User = require("../models/user");
 const Rent = require("../models/rent");
 const user = require("../models/user");
+const Message = require("../models/messages");
+const Texts = require("../models/texts");
 
 module.exports = {
   signUp: async ({ userData }, req) => {
@@ -100,9 +104,7 @@ module.exports = {
     }
     return { ...user._doc, _id: user._id.toString() };
   },
-  userUpdate: async ({ user }, req) => {
-    
-  },
+  userUpdate: async ({ user }, req) => {},
   createRent: async ({ rent }, req) => {
     if (!req.isAuth) {
       const error = new Error("Not authenticated!");
@@ -112,7 +114,7 @@ module.exports = {
 
     rent = JSON.parse(JSON.stringify(rent));
 
-    const user = await User.findById(req.userId);
+    const user = await User.findById("60e308dfaf34d30e1c337709");
     if (!user) {
       const error = new Error("Invalid user!");
       error.code = 401;
@@ -174,6 +176,7 @@ module.exports = {
     if (rent.rooms.length <= 0) {
       errors.push({ message: "At least one room must be specified." });
     }
+    console.log(errors)
 
     if (errors.length > 0) {
       const error = new Error("Invalid input.");
@@ -318,33 +321,18 @@ module.exports = {
     await user.save();
     return true;
   },
-  rents: async ({ page }, req) => {
+  rents: async ( req) => {
     if (!req.isAuth) {
       const error = new Error("Not authenticated!");
       error.code = 401;
       throw error;
     }
-    if (!page) {
-      page = 1;
-    }
-    const perPage = 2;
-    const totalRents = await Rent.find().countDocuments();
+
     const rents = await Rent.find()
       .sort({ createdAt: -1 })
-      .skip((page - 1) * perPage)
-      .limit(perPage)
       .populate("author");
-    return {
-      rents: rents.map((rent) => {
-        return {
-          ...rent._doc,
-          _id: rent._id.toString(),
-          createdAt: rent.createdAt.toISOString(),
-          updatedAt: rent.updatedAt.toISOString(),
-        };
-      }),
-      totalRents: totalRents,
-    };
+
+    return rents;
   },
   rent: async ({ id }, req) => {
     if (!req.isAuth) {
@@ -365,4 +353,90 @@ module.exports = {
       updatedAt: rent.updatedAt.toISOString(),
     };
   },
+  sentText: async ({ name, content, receiver, conversation }, req) => {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+
+    if (content.length > 4000) {
+      const error = new Error("Message too long");
+      error.code = 422;
+      throw error;
+    }
+
+    const user = await User.findById(req.userId).populate("rents");
+    const existingRent = false;
+    user.rents.forEach((rent) => {
+      if (rent.title == name) {
+        existingRent = true;
+      }
+    });
+
+    if (!existingRent) {
+      const error = new Error("No such offer found!");
+      error.code = 404;
+      throw error;
+    }
+
+    const confirmedReceiver = await User.findById(
+      mongoose.Types.ObjectId(receiver)
+    );
+    if (!confirmedReceiver) {
+      const error = new Error("No such user found.");
+      error.code = 404;
+      throw error;
+    }
+
+    const confirmedConversation = await Messages.findById(
+      mongoose.Types.ObjectId(conversation)
+    ).populate("texts");
+    if (!confirmedConversation) {
+      const error = new Error("Problem loading the conversation.");
+      error.code = 404;
+      throw error;
+    }
+
+    const newText = new Texts({
+      author: user,
+      content: content,
+      name: name,
+      receiver: confirmedReceiver,
+      conversation: confirmedConversation,
+    });
+
+    const createdText = await newText.save();
+
+    confirmedConversation.Texts.push(createdText);
+    await confirmedConversation.save()
+
+    //continue with the real-time implementation
+    io.getIO().emit('textCreate', { text: {...createdText._doc, author: user} })
+
+    return {
+      //Check and see what is supposed to be returned
+    }
+
+  },
+  loadTexts: async ({conversation}, req) => {
+    if (!req.isAuth) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+
+    const texts = await Texts.find().sort({ createdAt: -1})
+    return {
+      texts: texts.map(text => {
+        if(conversation == text.conversation.toString())
+        return {
+          ...text._doc,
+          _id: text._id.toString(),
+          createdAt: rent.createdAt.toISOString(),
+          updatedAt: rent.updatedAt.toISOString(),
+        }
+      })
+    }
+  }
 };
