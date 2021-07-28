@@ -1,125 +1,246 @@
-const { buildSchema } = require("graphql");
+const { gql } = require("apollo-server-express");
 
-module.exports = buildSchema(`
-    type RentType {
-        _id: ID!
-        author: UserType!
-        title: String!
-        type: String!
-        information: String!
-        location: LocationType!
-        status: String!
-        price: Float!
-        images: [String]!
-        imgnames: [String]!
-        rooms: [RoomType]!
-        convos: [MessageType]!
-        createdAt: String!
-        updatedAt: String!
-    }
+const typeDefs = gql`
 
-    input RentInput {
-        title: String!
-        type: String!
-        information: String!
-        location: LocationInput!
-        status: String!
-        price: Float!
-        images: [String]!
-        imgnames: [String]!
-        rooms: [RoomInput]!
-        convos: [MessageInput]
-    }
+type Rent {
+    _id: ID!
+    author: User!
+    title: String!
+    type: String!
+    information: String!
+    location: Location!
+    status: String!
+    price: Float!
+    images: [String]!
+    imgnames: [String]!
+    rooms: [Room]!
+    convos: [Conversation]!
+    createdAt: String!
+    updatedAt: String!
+}
 
-    type MessageType {
-        _id: ID!
-        name: String!
-        rentId: RentType!
-        texts: [TextsType]!
-    }
+type Conversation {
+    _id: ID!
+    name: String!
+    rentId: Rent!
+    home: String!
+    away: String!
+    texts: [Texts]!
+}
 
-    input MessageInput {
-        name: String!
-    }
+input ConversationInput {
+    rentId: String!
+    away: String!
+}
+
+type Texts {
+    _id: ID!
+    author: User!
+    receiver: String!
+    content: String!
+    conversation: Conversation!
+    createdAt: String!
+    updatedAt: String!
+}
+
+input TextsInput {
+    content: String!
+    receiver: String!
+    conversation: String!
+}
+
+type User {
+    _id: ID!
+    name: String!
+    email: String!
+    avatar: String
+    admin: Boolean!
+    rents: [Rent]!
+    password: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type Room {
+    size: String!
+    type: String!
+}
+
+input RoomInput {
+    size: String!
+    type: String!
+}
+
+type Location {
+    lat: Float!
+    lng: Float!
+}
+
+input LocationInput {
+    lat: Float!
+    lng: Float!
+}
+
+type Query {
+signIn(email: String!, password: String!): User!
+user: User!
+
+rent(id: String!): Rent!
+rents: Rent!
+
+conversations: Conversation!
+conversation(id: String!): Conversation!
+conversationByRent(rentId: String!): Conversation!
+}
+
+type Mutation {
+signUp(name: String!, email: String!, password: String!): User!
+updateUser(id: String!, name: String, email: String, avatar: String): User!
+
+createRent(title: String!, type: String!, information: String!, location: LocationInput!, status: String!, price: Float!, images: [String]!, imgnames: [String]!, rooms: [RoomInput]!, convos: [ConversationInput]!): Rent!
+updateRent(title: String!, type: String!, information: String!, location: LocationInput!, status: String!, price: Float!, images: [String]!, imgnames: [String]!, rooms: [RoomInput]!, convos: [ConversationInput]!, id: String!): Rent!
+deleteRent(id: String!): Boolean!
+
+createConversation(rentId: String!, away: String!): Conversation!
+updateConversation(id: String! texts: [String]!): Conversation!
+deleteConversation(id: String!): Boolean!
+}
+
+`;
+
+module.exports = typeDefs
+
+
+
+
+// const { buildSchema } = require("graphql");
+
+// module.exports = buildSchema(`
+//     type RentType {
+//         _id: ID!
+//         author: UserType!
+//         title: String!
+//         type: String!
+//         information: String!
+//         location: LocationType!
+//         status: String!
+//         price: Float!
+//         images: [String]!
+//         imgnames: [String]!
+//         rooms: [RoomType]!
+//         convos: [ConversationType]!
+//         createdAt: String!
+//         updatedAt: String!
+//     }
+
+//     input RentInput {
+//         title: String!
+//         type: String!
+//         information: String!
+//         location: LocationInput!
+//         status: String!
+//         price: Float!
+//         images: [String]!
+//         imgnames: [String]!
+//         rooms: [RoomInput]!
+//         convos: [ConversationInput]
+//     }
+
+//     type ConversationType {
+//         _id: ID!
+//         name: String!
+//         rentId: RentType!
+//         home: String!
+//         away: String!
+//         texts: [TextsType]!
+//     }
+
+//     input ConversationInput {
+//         rentId: String!
+//         away: String!
+//     }
     
-    type TextsType {
-        _id: ID!
-        author: UserType!
-        receiver: String!
-        content: String!
-        name: String!
-        conversation: MessageType!
-        createdAt: String!
-        updatedAt: String!
-    }
+    // type TextsType {
+    //     _id: ID!
+    //     author: UserType!
+    //     receiver: String!
+    //     content: String!
+    //     conversation: ConversationType!
+    //     createdAt: String!
+    //     updatedAt: String!
+    // }
 
-    input TextsInput {
-        content: String!
-        name: String!
-        receiver: String!
-        conversation: String!
-    }
+//     input TextsInput {
+//         content: String!
+//         receiver: String!
+//         conversation: String!
+//     }
 
-    type UserType {
-        _id: ID!
-        name: String!
-        email: String!
-        avatar: String!
-        admin: Boolean!
-        rents: [RentType]
-        password: String!
-        createdAt: String!
-        updatedAt: String!
-    }
+//     type UserType {
+//         _id: ID!
+//         name: String!
+//         email: String!
+//         avatar: String!
+//         admin: Boolean!
+//         rents: [RentType]
+//         password: String!
+//         createdAt: String!
+//         updatedAt: String!
+//     }
 
-    input UserInput {
-        name: String
-        email: String!
-        password: String!
-    }
+//     input UserInput {
+//         name: String
+//         email: String!
+//         password: String!
+//     }
 
-    type RoomType {
-        size: String!
-        type: String!
-    }
+//     type RoomType {
+//         size: String!
+//         type: String!
+//     }
 
-    input RoomInput {
-        size: String!
-        type: String!
-    }
+//     input RoomInput {
+//         size: String!
+//         type: String!
+//     }
 
-    type LocationType {
-        lat: Float!
-        lng: Float!
-    }
+//     type LocationType {
+//         lat: Float!
+//         lng: Float!
+//     }
     
-    input LocationInput {
-        lat: Float!
-        lng: Float!
-    }
+//     input LocationInput {
+//         lat: Float!
+//         lng: Float!
+//     }
 
-    type TokenData {
-        token: String!
-        user: UserType!
-    }
+//     type RootQuery {
+//         signIn(email: String!, password: String!): UserType
+//         user: UserType
+        
+//         rent(id: String!): RentType!
+//         rents: [RentType]!
 
-    type RootQuery {
-        signIn(email: String!, password: String!): TokenData!
-        rent(id: String): RentType!
-        rents: [RentType]!
-        user(id: String!): UserType!
-    }
+//         conversations: [ConversationType]!
+//         conversation(id: String!): ConversationType!
+//         conversationByRent(rentId: String!): ConversationType!
+//     }
 
-    type RootMutation {
-        signUp(userData: UserInput): UserType!
-        createRent(rent: RentInput!): RentType!
-        updateRent(rent: RentInput! id: String!): RentType!
-        deleteRent(id: String!): String!
-        updateUser(id: String!, name: String, email: String, avatar: String): UserType!
-    }
+//     type RootMutation {
+//         signUp(userData: UserInput): UserType
+//         updateUser(id: String!, name: String, email: String, avatar: String): UserType!
 
-    schema {
-        query: RootQuery
-        mutation: RootMutation
-    }
-`);
+//         createRent(rent: RentInput!): RentType!
+//         updateRent(rent: RentInput! id: String!): RentType!
+//         deleteRent(id: String!): Boolean!
+
+//         createConversation(conversation: ConversationInput!): ConversationType!
+//         updateConversation(id: String! texts: [String]!): ConversationType!
+//         deleteConversation(id: String!): Boolean!
+//     }
+
+//     schema {
+//         query: RootQuery
+//         mutation: RootMutation
+//     }
+// `);

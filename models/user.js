@@ -28,12 +28,6 @@ const userSchema = new Schema(
         ref: "Rent",
       },
     ],
-    texts: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Texts",
-      },
-    ],
   },
   { timestamps: true }
 );

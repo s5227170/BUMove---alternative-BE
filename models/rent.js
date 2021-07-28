@@ -56,7 +56,7 @@ const rentSchema = new Schema({
   convos: [
     {
       type: Schema.Types.ObjectId,
-      ref: "Message",
+      ref: "Conversation",
     },
   ],
 }, { timestamps: true });

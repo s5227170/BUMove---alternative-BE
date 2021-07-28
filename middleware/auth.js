@@ -1,24 +1,30 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const Token = require("../models/token");
 
-module.exports = (req, res, next) => {
-    const authHeader = req.get('Authorization');
-    if(!authHeader) {
-        req.isAuth = false;
-        return next();
-    }
-    const token = authHeader.split(' ')[1];
-    let decodedToken;
-    try {
-        decodedToken = jwt.verify(token, 'thisisasecret');
-    } catch(err) {
-        req.isAuth = false;
-        return next();
-    }
-    if(!decodedToken) {
-        req.isAuth = false;
-        return next();
-    }
-    req.userId = decodedToken.userId;
-    req.isAuth = true;
-    next();
+module.exports = createTokens = async (user) => {
+    const refreshToken = jwt.sign(
+        {
+          userId: user._id.toString(),
+          email: user.email,
+        },
+        process.env.REFRESH_TOKEN_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      const RT = new Token({
+          value: refreshToken
+      })
+  
+      const addedToken = await RT.save();
+  
+      const accessToken = jwt.sign(
+        {
+          userId: user._id.toString(),
+          email: user.email,
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "15m" }
+      );
+
+      return {addedToken, accessToken}
 }

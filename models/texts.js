@@ -8,17 +8,17 @@ const textsSchema = new Schema(
       ref: "User",
       required: true,
     },
+    receiver: {
+      type: String,
+      required: true,
+    },
     content: {
       type: String,
       required: true,
     },
-    convoID: {
+    conversation: {
       type: Schema.Types.ObjectId,
       ref: "Messages",
-      required: true,
-    },
-    name: {
-      type: String,
       required: true,
     },
   },

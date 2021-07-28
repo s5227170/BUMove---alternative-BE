@@ -3,43 +3,66 @@ const path = require("path");
 const express = require("express");
 const mongoose = require("mongoose");
 const multer = require("multer");
-const { graphqlHTTP } = require("express-graphql");
-//This has been added for hte .env
+
+//This has been added in order to reach .env file
+const { ApolloServer } = require("apollo-server-express");
+
 const dotenv = require("dotenv-flow");
 dotenv.config();
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const Token = require("./models/token");
+const User = require("./models/user");
 
-const graphqlSchema = require("./graphql/schema");
-const graphqlResolver = require("./graphql/resolvers");
-const auth = require("./middleware/auth");
+const typeDefs = require("./graphql/schema");
+const Query = require("./graphql/resolvers/Query");
+const Mutation = require("./graphql/resolvers/Mutation");
+
 const { clearImage } = require("./util/file");
+const createTokens = require("./middleware/auth");
 
-const app = express();
-const fileStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "images");
+const apollo = new ApolloServer({
+  typeDefs,
+  resolvers: {
+    Query,
+    Mutation
   },
-  filename: (req, file, cb) => {
-    cb(null, new Date().toISOString() + "-" + file.originalname);
-  },
+  context: ({ req, res }) => ({
+    req,
+    res,
+  }),
 });
 
-const fileFilter = (req, file, cb) => {
-  if (
-    file.mimetype === "image/png" ||
-    file.mimetype === "image/jpg" ||
-    file.mimetype === "image/jpeg"
-  ) {
-    cb(null, true);
-  } else {
-    cb(null, false);
-  }
-};
+const app = express();
 
-app.use(express.json());
+app.use(cookieParser());
 
-app.use(
-  multer({ storage: fileStorage, fileFilter: fileFilter }).array("images", 10)
-);
+// const fileStorage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, "images");
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, "\\" + file.originalname);
+//   },
+// });
+
+// const fileFilter = (req, file, cb) => {
+//   if (
+//     file.mimetype === "image/png" ||
+//     file.mimetype === "image/jpg" ||
+//     file.mimetype === "image/jpeg"
+//   ) {
+//     cb(null, true);
+//   } else {
+//     cb(null, false);
+//   }
+// };
+
+//app.use(express.json());
+
+// app.use(
+//   multer({ storage: fileStorage, fileFilter: fileFilter }).array("image")
+// );
 
 app.use("/images", express.static(path.join(__dirname, "images")));
 
@@ -56,48 +79,72 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(auth);
+// app.use(async (req, res, next) => {
+//   const accessToken = req.cookies["access-token"];
+//   const refreshToken = req.cookies["refresh-token"];
 
-app.put("/post-image", (req, res, next) => {
-  if (!req.isAuth) {
-    throw new Error("Not authenticated!");
-  }
-  if (!req.file) {
-    return res.status(200).json({ message: "No file provided!" });
-  }
-  if (req.body.oldPath) {
-    clearImage(req.body.oldPath);
-  }
-  return res
-    .status(201)
-    .json({ message: "File stored", filePath: req.file.path });
-});
+//   if (!refreshToken && !accessToken) {
+//     return next();
+//   }
 
-app.use(
-  "/graphql",
-  graphqlHTTP({
-    schema: graphqlSchema,
-    rootValue: graphqlResolver,
-    graphiql: true,
-    formatError(err) {
-      if (!err.originalname) {
-        return err;
-      }
-      const data = err.originalname.data;
-      const message = err.message || "An error occured.";
-      const code = err.originalname.code || 500;
-      return { message: message, status: code, data: data };
-    },
-  })
-);
+//   try {
+//     const confirmAToken = verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+//     if (!confirmAToken) next();
+//   } catch (e) {}
 
-app.use((error, req, res, next) => {
-  console.log(error);
-  const status = error.statusCode || 500;
-  const message = error.message;
-  const data = error.data;
-  res.status(status).json({ message: message, data: data });
-});
+//   if (!refreshToken) {
+//     return next();
+//   }
+
+//   let confirmRToken;
+
+//   try {
+//     confirmRToken = verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+//   } catch (e) {
+//     return next();
+//   }
+
+//   const user = await User.findOne(confirmRToken.userId);
+//   const existingRToken = await Token.findOne({ value: refreshToken });
+//   if (!existingRToken) {
+//     console.log("Non-existant refresh token!");
+//     return next();
+//   }
+//   req.userId = user._id;
+
+//   const newTokens = createTokens(user);
+//   res.cookie("refresh-token", newTokens.accessToken, {
+//     maxAge: 60 * 1000 * 15,
+//   });
+//   res.cookie("refresh-token", newTokens.refreshToken, {
+//     maxAge: 60 * 1000 * 60 * 24 * 7,
+//   });
+
+//   next();
+// });
+
+// app.put("/post-image", (req, res, next) => {
+//   if (!req.userId) {
+//     throw new Error("Not authenticated!");
+//   }
+//   if (!req.file) {
+//     return res.status(200).json({ message: "No file provided!" });
+//   }
+//   if (req.body.oldPath) {
+//     clearImage(req.body.oldPath);
+//   }
+//   return res
+//     .status(201)
+//     .json({ message: "File stored", filePath: req.file.path });
+// });
+
+// app.use((error, req, res, next) => {
+//   console.log(error);
+//   const status = error.statusCode || 500;
+//   const message = error.message;
+//   const data = error.data;
+//   res.status(status).json({ message: message, data: data });
+// });
 //the process.env.DB has its value in .env
 mongoose
   .connect(
@@ -105,9 +152,12 @@ mongoose
     { useNewUrlParser: true },
     { useUnifiedTopology: true }
   )
-  .then((result) => {
-    const sevrer = app.listen(8080);
-    const io = require("socket.io").init(server);
+  .then(async (result) => {
+    await apollo.start();
+    apollo.applyMiddleware({ app });
+
+    const server = app.listen(8080);
+    const io = require("socket.io")(server);
     io.on("connection", (socket) => {});
   })
   .catch((err) => console.log(err));
