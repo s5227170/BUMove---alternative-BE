@@ -12,7 +12,8 @@ module.exports = createTokens = async (user) => {
       );
 
       const RT = new Token({
-          value: refreshToken
+          value: refreshToken,
+          userId: user._id.toString()
       })
   
       const addedToken = await RT.save();
@@ -26,5 +27,5 @@ module.exports = createTokens = async (user) => {
         { expiresIn: "15m" }
       );
 
-      return {addedToken, accessToken}
+      return {refreshToken, accessToken}
 }

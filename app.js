@@ -2,13 +2,13 @@ const path = require("path");
 
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 const multer = require("multer");
 
 //This has been added in order to reach .env file
 const { ApolloServer } = require("apollo-server-express");
 
 const dotenv = require("dotenv-flow");
-dotenv.config();
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const Token = require("./models/token");
@@ -20,144 +20,265 @@ const Mutation = require("./graphql/resolvers/Mutation");
 
 const { clearImage } = require("./util/file");
 const createTokens = require("./middleware/auth");
+const { v4 } = require("uuid");
 
-const apollo = new ApolloServer({
-  typeDefs,
-  resolvers: {
-    Query,
-    Mutation
-  },
-  context: ({ req, res }) => ({
-    req,
-    res,
-  }),
-});
+(async () => {
+  const app = express();
 
-const app = express();
+  const fileStorage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      let accessToken = "";
+      let refreshToken = "";
 
-app.use(cookieParser());
+      let cookieNames = Object.keys(req.cookies);
+      let cookieValues = Object.values(req.cookies);
 
-// const fileStorage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, "images");
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, "\\" + file.originalname);
-//   },
-// });
+      for (let i = 0; i < cookieNames.length; i++) {
+        if (cookieNames[i] == "refresh-token") {
+          refreshToken = cookieValues[i];
+        } else if (cookieNames[i] == "access-token") {
+          accessToken = cookieValues[i];
+        }
+      }
 
-// const fileFilter = (req, file, cb) => {
-//   if (
-//     file.mimetype === "image/png" ||
-//     file.mimetype === "image/jpg" ||
-//     file.mimetype === "image/jpeg"
-//   ) {
-//     cb(null, true);
-//   } else {
-//     cb(null, false);
-//   }
-// };
+      if (!refreshToken && !accessToken) {
+        return cb("Both tokens missing!", "images");
+      }
 
-//app.use(express.json());
+      try {
+        const confirmAToken = jwt.verify(
+          accessToken,
+          process.env.ACCESS_TOKEN_SECRET
+        );
 
-// app.use(
-//   multer({ storage: fileStorage, fileFilter: fileFilter }).array("image")
-// );
+        if (confirmAToken) {
+          req.userId = confirmAToken.userId;
+          //return cb("Problem occured!", "images");
+        }
+      } catch (e) {}
 
-app.use("/images", express.static(path.join(__dirname, "images")));
+      if (!refreshToken) {
+        return cb("No refresh token!", "images");
+      }
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "OPTIONS, GET, POST, PUT, PATCH, DELETE"
+      let confirmRToken;
+
+      try {
+        confirmRToken = jwt.verify(
+          refreshToken,
+          process.env.REFRESH_TOKEN_SECRET
+        );
+
+        if (!confirmRToken) {
+          if (refreshToken) {
+            const existingRToken = await Token.findOne({ value: refreshToken });
+            if (existingRToken) {
+              await Token.deleteOne({ value: refreshToken });
+              return cb("Faulty refresh token!", "images");
+            }
+          }
+        }
+      } catch (e) {
+        return cb("Refresh token authentication failed!", "images");
+      }
+
+      const existingRToken = await Token.findOne({ value: refreshToken });
+      if (!existingRToken) {
+        console.log("Non-existant refresh token!");
+        return cb("Non-existant refresh token!", "images");
+      }
+      req.userId = existingRToken.userId;
+
+      cb(null, "images");
+    },
+    filename: (req, file, cb) => {
+      cb(null, v4() + "-" + file.originalname);
+    },
+  });
+
+  const fileFilter = async (req, file, cb) => {
+    if (
+      file.mimetype === "image/png" ||
+      file.mimetype === "image/jpg" ||
+      file.mimetype === "image/jpeg"
+    ) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  };
+
+  app.use(
+    cors({
+      credentials: true,
+      origin: "http://localhost:3000",
+    })
   );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
 
-// app.use(async (req, res, next) => {
-//   const accessToken = req.cookies["access-token"];
-//   const refreshToken = req.cookies["refresh-token"];
+  app.use(express.json());
+  app.use(cookieParser());
+  dotenv.config();
 
-//   if (!refreshToken && !accessToken) {
-//     return next();
-//   }
+  app.use(async (req, res, next) => {
+    let accessToken = "";
+    let refreshToken = "";
 
-//   try {
-//     const confirmAToken = verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-//     if (!confirmAToken) next();
-//   } catch (e) {}
+    if (req.headers.cookie) {
+      let cookies = req.headers.cookie.split(";");
+      let refined = [];
+      cookies.forEach((el) => {
+        refined.push(el.split("="));
+      });
 
-//   if (!refreshToken) {
-//     return next();
-//   }
+      for (let i = 0; i < refined.length; i++) {
+        for (let j = 0; j < refined[i].length; j++) {
+          refined[i][j] = refined[i][j].trim(" ");
+          if (refined[i][j] == "access-token") {
+            accessToken = refined[i][j + 1];
+          }
+          if (refined[i][j] == "refresh-token") {
+            refreshToken = refined[i][j + 1];
+          }
+        }
+      }
+    }
 
-//   let confirmRToken;
+    //check if both tokens are missing
+    if (!refreshToken && !accessToken) {
+      return next();
+    }
 
-//   try {
-//     confirmRToken = verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-//   } catch (e) {
-//     return next();
-//   }
+    //Check if the access token is still active
+    try {
+      const confirmAToken = jwt.verify(
+        accessToken,
+        process.env.ACCESS_TOKEN_SECRET
+      );
 
-//   const user = await User.findOne(confirmRToken.userId);
-//   const existingRToken = await Token.findOne({ value: refreshToken });
-//   if (!existingRToken) {
-//     console.log("Non-existant refresh token!");
-//     return next();
-//   }
-//   req.userId = user._id;
+      //if access token is valid, continue
+      if (confirmAToken) {
+        req.userId = confirmAToken.userId;
+        return next();
+      }
+    } catch (e) {}
 
-//   const newTokens = createTokens(user);
-//   res.cookie("refresh-token", newTokens.accessToken, {
-//     maxAge: 60 * 1000 * 15,
-//   });
-//   res.cookie("refresh-token", newTokens.refreshToken, {
-//     maxAge: 60 * 1000 * 60 * 24 * 7,
-//   });
+    //check to see if there is a refresh token
+    if (!refreshToken) {
+      return next();
+    }
 
-//   next();
-// });
+    let confirmRToken;
 
-// app.put("/post-image", (req, res, next) => {
-//   if (!req.userId) {
-//     throw new Error("Not authenticated!");
-//   }
-//   if (!req.file) {
-//     return res.status(200).json({ message: "No file provided!" });
-//   }
-//   if (req.body.oldPath) {
-//     clearImage(req.body.oldPath);
-//   }
-//   return res
-//     .status(201)
-//     .json({ message: "File stored", filePath: req.file.path });
-// });
+    //Check if the refresh token is valid and if not - exit
+    try {
+      confirmRToken = jwt.verify(
+        refreshToken,
+        process.env.REFRESH_TOKEN_SECRET
+      );
 
-// app.use((error, req, res, next) => {
-//   console.log(error);
-//   const status = error.statusCode || 500;
-//   const message = error.message;
-//   const data = error.data;
-//   res.status(status).json({ message: message, data: data });
-// });
-//the process.env.DB has its value in .env
-mongoose
-  .connect(
-    process.env.DB,
-    { useNewUrlParser: true },
-    { useUnifiedTopology: true }
-  )
-  .then(async (result) => {
-    await apollo.start();
-    apollo.applyMiddleware({ app });
+      if (!confirmRToken) {
+        if (refreshToken) {
+          const existingRToken = await Token.findOne({ value: refreshToken });
+          if (existingRToken) {
+            await Token.deleteOne({ value: refreshToken });
+            return next();
+          }
+        }
+      }
+    } catch (e) {
+      return next();
+    }
 
-    const server = app.listen(8080);
-    const io = require("socket.io")(server);
-    io.on("connection", (socket) => {});
-  })
-  .catch((err) => console.log(err));
+    //Find the user in case new tokens must be created
+    //const user = await User.findOne({ _id: confirmRToken.userId });
+
+    //Check if the refresh token is not only valid but in the DB, in case
+    //a fake token is provided
+    const existingRToken = await Token.findOne({ value: refreshToken });
+    if (!existingRToken) {
+      console.log("Non-existant refresh token!");
+      return next();
+    }
+    req.userId = existingRToken.userId;
+
+    //If the token is in the DB and is valid
+    if (existingRToken) {
+      //const newTokens = createTokens(existingRToken.userId);
+      const newAccessToken = jwt.sign(
+        {
+          userId: confirmRToken.userId,
+          email: confirmRToken.email,
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "15m" }
+      );
+
+      res.cookie("access-token", newAccessToken, {
+        maxAge: 60 * 1000 * 15,
+      });
+    }
+
+    next();
+  });
+
+  app.use("/images", express.static(path.join(__dirname, "images")));
+
+  app.put(
+    "/post-image",
+    multer({ storage: fileStorage, fileFilter: fileFilter }).array("image", 10),
+    async (req, res, next) => {
+      if (!req.userId) {
+        throw new Error("Not authenticated!");
+      }
+      if (!req.body) {
+        return res.status(200).json({ message: "No file provided!" });
+      }
+console.log(process.env.systemURL)
+      let linksArray = [];
+      for(let i = 0; i < req.files.length;i++){
+        linksArray.push(process.env.systemURL + req.files[i].path.replace(/\\/g, "//"))
+      }
+
+      return res
+        .status(201)
+        .json({ message: "File stored!", links: linksArray });
+    }
+  );
+
+  app.use((error, req, res, next) => {
+    console.log(error);
+    const status = error.statusCode || 500;
+    const message = error.message;
+    const data = error.data;
+    res.status(status).json({ message: message, data: data });
+  });
+
+  const apollo = new ApolloServer({
+    typeDefs,
+    resolvers: {
+      Query,
+      Mutation,
+    },
+    context: ({ req, res }) => {
+      res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+      return { req, res };
+    },
+  });
+
+  //the process.env.DB has its value in .env
+  mongoose
+    .connect(
+      process.env.DB,
+      { useNewUrlParser: true },
+      { useUnifiedTopology: true }
+    )
+    .then(async (result) => {
+      await apollo.start();
+      apollo.applyMiddleware({ app });
+
+      const server = app.listen(8080);
+      const io = require("socket.io")(server);
+      io.on("connection", (socket) => {});
+    })
+    .catch((err) => console.log(err));
+})();

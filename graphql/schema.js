@@ -1,8 +1,7 @@
 const { gql } = require("apollo-server-express");
 
 const typeDefs = gql`
-
-type Rent {
+  type Rent {
     _id: ID!
     author: User!
     title: String!
@@ -17,23 +16,36 @@ type Rent {
     convos: [Conversation]!
     createdAt: String!
     updatedAt: String!
-}
+  }
 
-type Conversation {
+  input RentInput {
+    title: String!
+    type: String!
+    information: String!
+    location: LocationInput!
+    status: String!
+    price: Float!
+    images: [String]!
+    imgnames: [String]!
+    rooms: [RoomInput]!
+    convos: [ConversationInput]
+  }
+
+  type Conversation {
     _id: ID!
     name: String!
     rentId: Rent!
     home: String!
     away: String!
     texts: [Texts]!
-}
+  }
 
-input ConversationInput {
+  input ConversationInput {
     rentId: String!
     away: String!
-}
+  }
 
-type Texts {
+  type Texts {
     _id: ID!
     author: User!
     receiver: String!
@@ -41,15 +53,15 @@ type Texts {
     conversation: Conversation!
     createdAt: String!
     updatedAt: String!
-}
+  }
 
-input TextsInput {
+  input TextsInput {
     content: String!
     receiver: String!
     conversation: String!
-}
+  }
 
-type User {
+  type User {
     _id: ID!
     name: String!
     email: String!
@@ -59,59 +71,69 @@ type User {
     password: String!
     createdAt: String!
     updatedAt: String!
-}
+  }
 
-type Room {
+  type Room {
     size: String!
     type: String!
-}
+  }
 
-input RoomInput {
+  input RoomInput {
     size: String!
     type: String!
-}
+  }
 
-type Location {
+  type Location {
     lat: Float!
     lng: Float!
-}
+  }
 
-input LocationInput {
+  input LocationInput {
     lat: Float!
     lng: Float!
-}
+  }
 
-type Query {
-signIn(email: String!, password: String!): User!
-user: User!
+  type AuthData {
+    userId: String!
+    tokens: Tokens!
+  }
 
-rent(id: String!): Rent!
-rents: Rent!
+  type Tokens {
+    accessToken: String!
+    refreshToken: String!
+  }
 
-conversations: Conversation!
-conversation(id: String!): Conversation!
-conversationByRent(rentId: String!): Conversation!
-}
+  type AllRents {
+    rents: [Rent]!
+  }
 
-type Mutation {
-signUp(name: String!, email: String!, password: String!): User!
-updateUser(id: String!, name: String, email: String, avatar: String): User!
+  type Query {
+    signIn(email: String!, password: String!): Boolean!
+    user: User
 
-createRent(title: String!, type: String!, information: String!, location: LocationInput!, status: String!, price: Float!, images: [String]!, imgnames: [String]!, rooms: [RoomInput]!, convos: [ConversationInput]!): Rent!
-updateRent(title: String!, type: String!, information: String!, location: LocationInput!, status: String!, price: Float!, images: [String]!, imgnames: [String]!, rooms: [RoomInput]!, convos: [ConversationInput]!, id: String!): Rent!
-deleteRent(id: String!): Boolean!
+    rent(id: String!): Rent!
+    rents: AllRents!
 
-createConversation(rentId: String!, away: String!): Conversation!
-updateConversation(id: String! texts: [String]!): Conversation!
-deleteConversation(id: String!): Boolean!
-}
+    conversations: Conversation!
+    conversation(id: String!): Conversation!
+    conversationByRent(rentId: String!): Conversation!
+  }
 
+  type Mutation {
+    signUp(name: String!, email: String!, password: String!): User!
+    updateUser(id: String!, name: String, email: String, avatar: String): User!
+
+    createRent(rent: RentInput): Rent!
+    updateRent(rent: RentInput, id: String!): Rent!
+    deleteRent(id: String!): Boolean!
+
+    createConversation(rentId: String!, away: String!): Conversation!
+    updateConversation(id: String!, texts: [String]!): Conversation!
+    deleteConversation(id: String!): Boolean!
+  }
 `;
 
-module.exports = typeDefs
-
-
-
+module.exports = typeDefs;
 
 // const { buildSchema } = require("graphql");
 
@@ -159,16 +181,16 @@ module.exports = typeDefs
 //         rentId: String!
 //         away: String!
 //     }
-    
-    // type TextsType {
-    //     _id: ID!
-    //     author: UserType!
-    //     receiver: String!
-    //     content: String!
-    //     conversation: ConversationType!
-    //     createdAt: String!
-    //     updatedAt: String!
-    // }
+
+// type TextsType {
+//     _id: ID!
+//     author: UserType!
+//     receiver: String!
+//     content: String!
+//     conversation: ConversationType!
+//     createdAt: String!
+//     updatedAt: String!
+// }
 
 //     input TextsInput {
 //         content: String!
@@ -208,7 +230,7 @@ module.exports = typeDefs
 //         lat: Float!
 //         lng: Float!
 //     }
-    
+
 //     input LocationInput {
 //         lat: Float!
 //         lng: Float!
@@ -217,7 +239,7 @@ module.exports = typeDefs
 //     type RootQuery {
 //         signIn(email: String!, password: String!): UserType
 //         user: UserType
-        
+
 //         rent(id: String!): RentType!
 //         rents: [RentType]!
 
