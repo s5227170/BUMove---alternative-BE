@@ -155,13 +155,40 @@ const Query = {
       throw error;
     }
 
-    const convo = await Conversation.findOne({ rentId: rentId });
 
+    const convo = await Conversation.findOne({ rentId: rentId }).populate("texts");
+
+    if(convo){
+      return {
+        ...convo._doc,
+        _id: convo._id.toString(),
+        createdAt: convo.createdAt.toISOString(),
+        updatedAt: convo.updatedAt.toISOString(),
+      };
+    }
+
+    return 
+    
+  },
+  loadTexts: async ({ conversation }, req) => {
+    if (!req.userId) {
+      const error = new Error("Not authenticated!");
+      error.code = 401;
+      throw error;
+    }
+
+    const texts = await Texts.find({ conversation: conversation._id }).sort({ createdAt: -1 });
+    
     return {
-      ...convo._doc,
-      _id: convo._id.toString(),
-      createdAt: rent.createdAt.toISOString(),
-      updatedAt: rent.updatedAt.toISOString(),
+      texts: texts.map((text) => {
+        //if (conversation == text.conversation.toString())
+          return {
+            ...text._doc,
+            _id: text._id.toString(),
+            createdAt: rent.createdAt.toISOString(),
+            updatedAt: rent.updatedAt.toISOString(),
+          };
+      }),
     };
   },
 };

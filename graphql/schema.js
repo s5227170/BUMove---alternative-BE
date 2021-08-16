@@ -107,6 +107,16 @@ const typeDefs = gql`
     rents: [Rent]!
   }
 
+  type AllTexts {
+    texts: [Texts]!
+  }
+
+  input UserSignUpData {
+    name: String!
+    email: String!
+    password: String!
+  }
+
   type Query {
     signIn(email: String!, password: String!): Boolean!
     user: User
@@ -116,20 +126,24 @@ const typeDefs = gql`
 
     conversations: Conversation!
     conversation(id: String!): Conversation!
-    conversationByRent(rentId: String!): Conversation!
+    conversationByRent(rentId: String!): Conversation
+
+    loadTexts(conversation: String!): AllTexts!
   }
 
   type Mutation {
-    signUp(name: String!, email: String!, password: String!): User!
+    signUp(data: UserSignUpData!): User!
     updateUser(id: String!, name: String, email: String, avatar: String): User!
 
     createRent(rent: RentInput): Rent!
     updateRent(rent: RentInput, id: String!): Rent!
     deleteRent(id: String!): Boolean!
 
-    createConversation(rentId: String!, away: String!): Conversation!
+    createConversation(conversation: ConversationInput!): Conversation!
     updateConversation(id: String!, texts: [String]!): Conversation!
     deleteConversation(id: String!): Boolean!
+
+    sendText(text: TextsInput): Texts!
   }
 `;
 

@@ -233,7 +233,7 @@ const { v4 } = require("uuid");
       if (!req.body) {
         return res.status(200).json({ message: "No file provided!" });
       }
-console.log(process.env.systemURL)
+
       let linksArray = [];
       for(let i = 0; i < req.files.length;i++){
         linksArray.push(process.env.systemURL + req.files[i].path.replace(/\\/g, "//"))
@@ -277,8 +277,10 @@ console.log(process.env.systemURL)
       apollo.applyMiddleware({ app });
 
       const server = app.listen(8080);
-      const io = require("socket.io")(server);
-      io.on("connection", (socket) => {});
+      const io = require("./socket").init(server);
+      io.on("connection", (socket) => {
+
+      });
     })
     .catch((err) => console.log(err));
 })();

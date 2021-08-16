@@ -14,7 +14,7 @@ const conversationSchema = new Schema({
     type: String,
     required: true,
   },
-  rentID: {
+  rentId: {
     type: Schema.Types.ObjectId,
     required: true,
     ref: "Rent",
@@ -25,6 +25,6 @@ const conversationSchema = new Schema({
       ref: "Texts",
     },
   ],
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("Conversation", conversationSchema);
