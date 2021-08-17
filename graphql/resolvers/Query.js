@@ -120,17 +120,27 @@ const Query = {
       throw error;
     }
 
-    const convosHome = await Conversation.find()
-      .where("home")
-      .isEqual(req.userId);
-    const convosAway = await Conversation.find()
-      .where("away")
-      .isEqual(req.userId)
-      .where("home")
-      .isEqual(req.userId.toString())
-      .sort({ updatedAt: 1 });
+    const convosHome = await Conversation.find({ home: req.userId}).populate("rentId")
 
-    return convos;
+    const convosAway = await Conversation.find({ away: req.userId}).populate("rentId")
+
+    const allConvos = convosHome.concat(convosAway)
+    
+    console.log(convosHome)
+    console.log(convosAway)
+    console.log("=======")
+    console.log(allConvos)
+
+    return {
+      conversations: allConvos.map((convo) => {
+        return {
+          ...convo._doc,
+          _id: convo._id.toString(),
+          createdAt: convo.createdAt.toISOString(),
+          updatedAt: convo.updatedAt.toISOString(),
+        };
+      }),
+    };
   },
   conversation: async (_, { id }, { req, res }) => {
     if (!req.userId) {

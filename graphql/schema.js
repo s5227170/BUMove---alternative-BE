@@ -111,6 +111,10 @@ const typeDefs = gql`
     texts: [Texts]!
   }
 
+  type AllConversations {
+    conversations: [Conversation]!
+  }
+
   input UserSignUpData {
     name: String!
     email: String!
@@ -124,7 +128,7 @@ const typeDefs = gql`
     rent(id: String!): Rent!
     rents: AllRents!
 
-    conversations: Conversation!
+    conversations: AllConversations!
     conversation(id: String!): Conversation!
     conversationByRent(rentId: String!): Conversation
 
